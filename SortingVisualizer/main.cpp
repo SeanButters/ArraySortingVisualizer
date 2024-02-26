@@ -4,6 +4,16 @@
 const int ARRAYSIZE = 1000;		//Contains array size;
 
 
+/*
+*  TO DO:
+*	1. Add support for more sorting methods
+*	2. Improve UI and make it easier to execute commands
+*/
+
+
+
+
+
 //
 // Application Struct
 //
@@ -18,6 +28,7 @@ struct application
 
 	int numComparisons;
 	int numSwaps;
+	int numWrites;
 
 	//SDL objects
 	SDL_Window* window;			// SDL2 window
@@ -26,18 +37,23 @@ struct application
 
 	//Methods
 	void init(const char* title, int width, int height);	//Initialize window and variables
-	void initArray();					// Initialize Values in array
-	void initTexture();					// Create texture from array
-	void display();						// Refresh texture to window
-	void renderSwap(int x1, int x2);	// Update texture when a swap happens
-	void handleEvents();				// Handle user inputs
+	void initArray();										// Initialize Values in array
+	void initTexture();										// Create texture from array
+	void display();											// Refresh texture to window
+	void renderSwap(int x1, int x2);						// Update texture when a swap happens
+	void renderCol(int x);									// Update texture for 1 array value
+	void handleEvents();									// Handle user inputs
 
 	//Array Sorting Methods
 	void randomize();
 	void bubbleSort();
 
+	void countingSort();
+	void radixSort();
+
 	void endDiagnostics();
 	void startDiagnostics();
+	void swap(int x1, int x2);
 
 	void update() {
 		handleEvents();
@@ -46,14 +62,6 @@ struct application
 	void update(int x1, int x2) {
 		handleEvents();
 		renderSwap(x1, x2);
-	}
-	void swap(int x1, int x2) {
-		int temp = arr[x1];
-		arr[x1] = arr[x2];
-		arr[x2] = temp;
-		numSwaps++;
-
-		update(x1, x2);
 	}
 };
 
@@ -79,8 +87,11 @@ int main(int argc, char* argv[]) {
 	SDL_DestroyTexture(app.texture);
 	SDL_Quit();
 
+	std::cout << "Exiting..." << std::endl;
+
 	return 0;
 }
+
 
 
 //
@@ -106,7 +117,6 @@ void application::randomize() {
 void application::bubbleSort() {
 	std::cout << "Sorting Array with Bubble Sort..." << std::endl;
 	startDiagnostics();
-	int temp;
 
 	for (int i = ARRAYSIZE; i >= 1; i--) {
 		if (!isRunning || endOperation) break;
@@ -124,12 +134,37 @@ void application::bubbleSort() {
 	endDiagnostics();
 }
 
+void application::countingSort() {
+	std::cout << "Sorting Array with Counting Sort..." << std::endl;
+
+	startDiagnostics();
+	int countArray[ARRAYSIZE] = {};
+
+	for (int i = 0; i < ARRAYSIZE; i++) {
+		countArray[arr[i]]++;
+		numWrites++;
+	}
+
+	int x = 0;
+	for (int i = 0; i < ARRAYSIZE; i++) {
+		for (int j = 0; j < countArray[i]; j++) {
+			arr[x] = i;
+			renderCol(x);
+			x++;
+		}
+	}
+
+	endDiagnostics();
+}
+
+
 void application::startDiagnostics() {
 	arrayUnderOperation = true;
 	endOperation = false;
 	timeElapsed = SDL_GetTicks();
 	numSwaps = 0;
 	numComparisons = 0;
+	numWrites = 0;
 }
 
 void application::endDiagnostics() {
@@ -140,10 +175,19 @@ void application::endDiagnostics() {
 	std::cout << "Time Elapsed: " << timeElapsed << "s" << std::endl;
 	std::cout << "Number of Comparisons: " << numComparisons << std::endl;
 	std::cout << "Number of Swaps: " << numSwaps << std::endl;
-	std::cout << "Number of Operations: " << numSwaps + numComparisons << std::endl << std::endl << std::endl;
+	std::cout << "Number of Writes to Auxillary Array: " << numWrites << std::endl;
+	std::cout << "Number of Operations: " << numSwaps + numComparisons + numWrites << std::endl << std::endl << std::endl;
 	endOperation = false;
 }
 
+void application::swap(int x1, int x2) {
+	int temp = arr[x1];
+	arr[x1] = arr[x2];
+	arr[x2] = temp;
+	numSwaps++;
+
+	update(x1, x2);
+}
 
 //
 // Function Definitions
@@ -213,6 +257,25 @@ void application::renderSwap(int x1, int x2) {
 	display();
 }
 
+void application::renderCol(int x) {
+	void* data;
+	int pitch;
+	unsigned int* row;
+	SDL_LockTexture(texture, NULL, &data, &pitch);
+
+	for (int j = 0; j < 2; j++) {
+		for (int y = 0; y < ARRAYSIZE; y++) {
+			row = (unsigned int*)((char*)data + pitch * (ARRAYSIZE - y));
+			if (y < arr[x]) row[x] = 0xFFFFFF00;
+			else row[x] = 0;
+		}
+	}
+
+	SDL_UnlockTexture(texture);
+
+	display();
+}
+
 void application::handleEvents() {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
@@ -220,6 +283,7 @@ void application::handleEvents() {
 		{
 		case SDL_QUIT:			// Exit application
 			isRunning = false;
+			endOperation = true;
 			break;
 		case SDL_KEYDOWN:		//Key Down
 			if (event.key.keysym.sym == SDLK_x) {
@@ -230,6 +294,9 @@ void application::handleEvents() {
 			}
 			else if (event.key.keysym.sym == SDLK_1 && !arrayUnderOperation) {
 				bubbleSort();
+			}
+			else if (event.key.keysym.sym == SDLK_0 && !arrayUnderOperation) {
+				countingSort();
 			}
 			break;
 		default:
