@@ -1,8 +1,9 @@
+# Array Sorting Visualizer
 C++ Array Sorting Visualizer
 Rendered using SDL2
 
 
-Controls:
+## Controls:
 
 x: Stop current operation
 r: Randomize Array
